@@ -1,0 +1,13 @@
+Reference-oracle check 1: daily rank IC, vectorized vs hand-rolled loop
+  40 (signal, date) pairs checked across 5 signals x 8 dates
+  max abs diff, vectorized vs oracle IC: 0.000e+00
+  PASS (exact to floating point, < 1e-9)
+
+Reference-oracle check 2: deflated Sharpe ratio moments and PSR/SR0, vectorized vs hand-rolled
+  10 synthetic series, 120 obs each
+  max abs diff mean: 3.469e-18, skew: 4.302e-16, kurtosis: 5.773e-15, sharpe: 8.882e-16
+  SR0 (63 trials): vectorized 1.204551, oracle 1.204551, diff 2.220e-16
+  max abs diff, PSR/DSR: 6.661e-16
+
+overall max abs diff across both checks: 5.773e-15
+PASS (within 1e-8 tolerance)
