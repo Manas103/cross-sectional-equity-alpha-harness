@@ -1,0 +1,9 @@
+manifest: {
+  "data_vintage_digest": "89b98123b9268208f4683032c76f4192adf036e63f358af2cdae54bc8608c53b",
+  "code_digest": "b951547f46897e75f75da7f712aeb22485666e950907854c262e0a0cbc095c72",
+  "seed": 4242
+}
+run_1: {'n_rows': 750500, 'mean': 3.3034539906020413e-05, 'std': 1.0144177670569479, 'seeded_resample_mean': 0.011586010725267984, 'data_vintage_digest': '89b98123b9268208f4683032c76f4192adf036e63f358af2cdae54bc8608c53b', 'code_digest': 'b951547f46897e75f75da7f712aeb22485666e950907854c262e0a0cbc095c72'}
+run_2: {'n_rows': 750500, 'mean': 3.3034539906020413e-05, 'std': 1.0144177670569479, 'seeded_resample_mean': 0.011586010725267984, 'data_vintage_digest': '89b98123b9268208f4683032c76f4192adf036e63f358af2cdae54bc8608c53b', 'code_digest': 'b951547f46897e75f75da7f712aeb22485666e950907854c262e0a0cbc095c72'}
+exact match across two independent runs of the same manifest: True
+a different seed changes the seeded resample mean: True

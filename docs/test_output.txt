@@ -1,18 +1,23 @@
 ============================= test session starts =============================
-platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\Manas\Downloads\Total Job Application process flow\projects\cross-sectional-equity-alpha-harness\venv\Scripts\python.exe
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\Manas\Downloads\Auto Job Applier\Total Job Application process flow\projects\cross-sectional-equity-alpha-harness\venv\Scripts\python.exe
 cachedir: .pytest_cache
-rootdir: C:\Users\Manas\Downloads\Total Job Application process flow
+rootdir: C:\Users\Manas\Downloads\Auto Job Applier\Total Job Application process flow
 configfile: pytest.ini
-collecting ... collected 9 items
+collecting ... collected 14 items
 
-tests\test_neutralize_and_impact.py::test_sector_neutralize_zeros_out_per_sector_mean PASSED [ 11%]
-tests\test_neutralize_and_impact.py::test_dollar_neutral_weights_have_the_documented_small_bias_and_unit_gross PASSED [ 22%]
-tests\test_neutralize_and_impact.py::test_impact_cost_is_nondecreasing_in_participation PASSED [ 33%]
-tests\test_purge_no_overlap.py::test_purge_covers_the_label_horizon PASSED [ 44%]
-tests\test_purge_no_overlap.py::test_folds_have_no_train_test_index_overlap_and_respect_the_purge_gap PASSED [ 55%]
-tests\test_purge_no_overlap.py::test_folds_are_expanding_and_contiguous_test_blocks PASSED [ 66%]
-tests\test_signals_and_dsr.py::test_exactly_63_signals_built PASSED      [ 77%]
-tests\test_signals_and_dsr.py::test_sr0_benchmark_increases_with_more_trials_given_fixed_dispersion PASSED [ 88%]
-tests\test_signals_and_dsr.py::test_psr_is_bounded_in_unit_interval PASSED [100%]
+tests\test_neutralize_and_impact.py::test_sector_neutralize_zeros_out_per_sector_mean PASSED [  7%]
+tests\test_neutralize_and_impact.py::test_dollar_neutral_weights_have_the_documented_small_bias_and_unit_gross PASSED [ 14%]
+tests\test_neutralize_and_impact.py::test_impact_cost_is_nondecreasing_in_participation PASSED [ 21%]
+tests\test_purge_no_overlap.py::test_purge_covers_the_label_horizon PASSED [ 28%]
+tests\test_purge_no_overlap.py::test_folds_have_no_train_test_index_overlap_and_respect_the_purge_gap PASSED [ 35%]
+tests\test_purge_no_overlap.py::test_folds_are_expanding_and_contiguous_test_blocks PASSED [ 42%]
+tests\test_signals_and_dsr.py::test_exactly_63_signals_built PASSED      [ 50%]
+tests\test_signals_and_dsr.py::test_sr0_benchmark_increases_with_more_trials_given_fixed_dispersion PASSED [ 57%]
+tests\test_signals_and_dsr.py::test_psr_is_bounded_in_unit_interval PASSED [ 64%]
+tests\test_vintage_leakage.py::test_vintage_store_never_returns_a_later_knowledge_date PASSED [ 71%]
+tests\test_vintage_leakage.py::test_restatements_exist_and_differ_from_preliminary PASSED [ 78%]
+tests\test_vintage_leakage.py::test_all_seven_leakage_bugs_are_caught PASSED [ 85%]
+tests\test_vintage_leakage.py::test_clean_read_is_not_flagged PASSED     [ 92%]
+tests\test_vintage_leakage.py::test_pinned_runs_reproduce_exactly PASSED [100%]
 
-============================== 9 passed in 0.95s ==============================
+============================= 14 passed in 15.17s =============================

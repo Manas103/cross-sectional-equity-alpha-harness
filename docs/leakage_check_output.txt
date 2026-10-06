@@ -1,0 +1,9 @@
+7 of 7 seeded leakage bugs caught
+caught: bug_1_use_final_restated_value: query_date 2024-09-24 is after simulation clock 2022-10-04
+caught: bug_2_off_by_one_day_ahead: query_date 2022-10-05 is after simulation clock 2022-10-04
+caught: bug_3_bfill_across_restatement: query_date 2022-11-03 is after simulation clock 2022-10-04
+caught: bug_4_stale_future_cache: query_date 2022-10-19 is after simulation clock 2022-10-04
+caught: bug_5_wrong_value_date_future_row: query_date 2022-10-05 is after simulation clock 2022-10-04
+caught: bug_6_global_max_knowledge_join: query_date 2024-09-24 is after simulation clock 2022-10-04
+caught: bug_7_wall_clock_today: query_date 2026-10-05 is after simulation clock 2022-10-04
+clean read (query_date == simulation_clock): no false positive

@@ -1,4 +1,4 @@
-# Cross-Sectional Equity Alpha Harness with Capacity Limits
+# Cross-Sectional Equity Alpha Harness with Capacity Limits and a Point-in-Time Leakage Detector
 
 63 formulaic cross-sectional signals, in the spirit of WorldQuant's "101
 Formulaic Alphas", mined on 8 years of daily bars for 500 simulated U.S.
@@ -6,9 +6,13 @@ equities: sector-neutralized, scored out of sample under a purged
 walk-forward split, corrected for the 63-trial multiple-testing problem with
 the deflated Sharpe ratio, and the survivors traded at increasing size under
 a square-root market-impact cost model to find where net Sharpe collapses.
-Every number below was measured on this machine, not targeted; two sweeps
-were widened, and one survivor-selection rule was pre-specified and never
-touched after seeing results, all disclosed in Findings.
+Extended (Oct. 2026) with a point-in-time vintage store, a leakage detector
+that fails a run reading a later vintage than its own simulation clock, and
+a pinned run manifest (data vintage digest plus code digest plus seed) that
+reproduces its own statistic exactly. Every number below was measured on
+this machine, not targeted; two sweeps were widened, and one
+survivor-selection rule was pre-specified and never touched after seeing
+results, all disclosed in Findings.
 
 ## Why this exists
 
@@ -49,6 +53,18 @@ builds the smallest honest version of that two-part question.
   SQL window-function query against the same columns. This is the same
   accepted pattern `futures-strategy-backtester` and
   `composite-dem-publish-gates` already use in this portfolio.
+- **The vintage store is a separate, synthetic restatement model, not the
+  signal panel's prices.** `xsalpha/vintage_store.py` generates its own
+  500-entity, 2,016-day series of preliminary and (about 8% of the time)
+  restated values, independent of `xsalpha/simulate.py`'s price panel. It
+  exists to exercise the point-in-time and leakage-detection machinery
+  honestly, not to re-run the 63-signal mining under restatement.
+- **The leakage detector is a second, independent check, not the only
+  safeguard.** `VintageStore.as_of` will honor whatever query_date it is
+  handed; `LeakageDetector.guarded_as_of` is the call-site-independent check
+  that the query_date and every returned row's knowledge_date are no later
+  than the simulation clock. The 7 seeded bugs in `xsalpha/leakage_bugs.py`
+  are 7 distinct, realistic ways a backtester call site gets this wrong.
 
 ### Machine and toolchain
 
@@ -75,19 +91,28 @@ xsalpha/portfolio.py   composite z-scored survivor signal -> dollar-neutral, uni
 xsalpha/impact.py      square-root market-impact cost model, capacity sweep, crossing-point finder
 xsalpha/db.py          DuckDB panel storage; a real SQL window-function query for trailing dollar ADV
 xsalpha/reference_oracle.py  independent, loop-based IC and deflated-Sharpe reimplementation
+xsalpha/vintage_store.py     point-in-time store: every value tagged with the date it was actually known
+xsalpha/leakage_detector.py  guard that fails a run reading a vintage published after its simulation clock
+xsalpha/leakage_bugs.py      7 seeded, named leakage bugs exercised against the guard
+xsalpha/run_manifest.py      pins a data-vintage digest, a code digest and a seed for exact reproduction
 
 sql/schema.sql              PostgreSQL-shaped panel table (designed, not exercised live; see above)
 scripts/run_signal_mining.py    mines all 63 signals, applies the survivor rule, writes docs/benchmark_output.txt
 scripts/run_capacity_sweep.py   trades the survivor portfolio at increasing size under the impact model
 scripts/reference_oracle_check.py   diffs the vectorized IC/DSR math against the independent oracle
+scripts/run_leakage_check.py        runs the 7 seeded leakage bugs through the guard, writes docs/leakage_check_output.txt
+scripts/run_pinned_reproducibility.py  pins a manifest and checks two runs reproduce exactly, writes docs/pinned_reproducibility_output.txt
 
 tests/test_purge_no_overlap.py       purged-fold label/test overlap check
 tests/test_neutralize_and_impact.py  sector-neutrality and impact-cost monotonicity invariants
 tests/test_signals_and_dsr.py        signal count and deflated-Sharpe sanity properties
+tests/test_vintage_leakage.py        vintage-store invariant, all 7 leakage bugs caught, pinned reproducibility
 
 docs/benchmark_output.txt        raw signal-mining and capacity-sweep run
 docs/reference_oracle_output.txt raw reference-oracle diff run
 docs/test_output.txt             raw pytest run
+docs/leakage_check_output.txt    raw 7-of-7 leakage bug run
+docs/pinned_reproducibility_output.txt  raw pinned-manifest reproducibility run
 ```
 
 **Why the survivor sign is estimated per fold, not globally.** `ic.py`'s
@@ -149,6 +174,37 @@ chance alone), and that PSR is bounded in [0, 1].
 9 passed in 0.92s
 ```
 
+**5. Leakage detector.** `scripts/run_leakage_check.py` builds a 500-entity,
+2,016-day vintage store with restatements, then drives all 7 named bugs in
+`xsalpha/leakage_bugs.py` through `LeakageDetector.guarded_as_of` and
+confirms every one raises, plus that a correctly-written read
+(`query_date == simulation_clock`) is not flagged:
+
+```
+7 of 7 seeded leakage bugs caught
+caught: bug_1_use_final_restated_value: query_date 2024-09-24 is after simulation clock 2022-10-04
+caught: bug_2_off_by_one_day_ahead: query_date 2022-10-05 is after simulation clock 2022-10-04
+caught: bug_3_bfill_across_restatement: query_date 2022-11-03 is after simulation clock 2022-10-04
+caught: bug_4_stale_future_cache: query_date 2022-10-19 is after simulation clock 2022-10-04
+caught: bug_5_wrong_value_date_future_row: query_date 2022-10-05 is after simulation clock 2022-10-04
+caught: bug_6_global_max_knowledge_join: query_date 2024-09-24 is after simulation clock 2022-10-04
+caught: bug_7_wall_clock_today: query_date 2026-10-05 is after simulation clock 2022-10-04
+clean read (query_date == simulation_clock): no false positive
+```
+
+**6. Pinned reproducibility.** `scripts/run_pinned_reproducibility.py` hashes
+the vintage store's full content and every `.py` file in `xsalpha/` into a
+manifest alongside a seed, computes a small statistic (row count, mean, std,
+a seeded resample mean) from the as-of panel, and checks a second,
+independent build of the same vintage store under the same manifest
+reproduces every field exactly, while a different seed changes the seeded
+resample mean (so the check is not vacuously true):
+
+```
+exact match across two independent runs of the same manifest: True
+a different seed changes the seeded resample mean: True
+```
+
 ## Findings
 
 **3 of 63 signals survived, against a target of 9, and the rule that
@@ -207,6 +263,10 @@ x 2,016 days runs in about 226 seconds. Raw output in `docs/`.
 | Sector-neutralized, purged walk-forward | yes | **yes**, 8 folds, 5-day horizon, 5-day purge, 260-day burn-in |
 | Survivors after deflated-Sharpe correction (63 trials) | 9 of 63 | **3 of 63** (`ey_level`, `ey_smooth_20`, `ey_smooth_60`) |
 | Net Sharpe falls under 0.5 past a gross size | $180M | **not reached by $100B** (555x the target), swept twice |
+| Point-in-time vintage store holding only what was known at each rebalance | yes | **yes**: `VintageStore.as_of` filters strictly on `knowledge_date <= query_date`; checked directly over the full 500 x 2,016 simulated series |
+| Leakage detector fails any run reading a later vintage | yes | **yes**, 7 of 7 seeded bugs caught (see Validation 5), 0 false positives on a clean read |
+| Seeded leakage bugs caught | 7 of 7 | **7 of 7** |
+| Pinned runs reproduce exactly | yes | **yes**: two independent builds of the same vintage content under the same manifest produce bit-identical statistics; a different seed changes the result (see Validation 6) |
 
 What "survives" measures here: out-of-sample daily rank IC, sign-corrected
 per fold from that fold's training data only, reduced to one Sharpe-like
@@ -232,7 +292,9 @@ the capacity sweep.
 python scripts/run_signal_mining.py     # ~226s, writes docs/benchmark_output.txt, data/survivors.json
 python scripts/run_capacity_sweep.py    # ~1s, appends to docs/benchmark_output.txt
 python scripts/reference_oracle_check.py  # ~1s, writes docs/reference_oracle_output.txt
-python -m pytest tests -v               # ~1s, 9 tests
+python scripts/run_leakage_check.py       # ~14s, writes docs/leakage_check_output.txt
+python scripts/run_pinned_reproducibility.py  # ~14s, writes docs/pinned_reproducibility_output.txt
+python -m pytest tests -v               # ~38s, 14 tests
 ```
 
 `data/` is gitignored (the DuckDB panel file and the survivor list, about 59
@@ -267,3 +329,12 @@ backtest cannot pose.
   project is the mining-and-correction pipeline, not portfolio optimization.
 - PostgreSQL is designed (`sql/schema.sql`) but not exercised live; the
   DuckDB path is what is actually measured.
+- The vintage store models one field's restatement behavior and is not
+  wired into the 63-signal mining pipeline; the leakage detector is proven
+  against the vintage store directly, not by re-running signal mining under
+  simulated restatements.
+- The leakage detector's guard is only as good as every call site choosing
+  to go through `guarded_as_of`; nothing prevents a future call site from
+  calling `VintageStore.as_of` directly and bypassing it, which is why the 7
+  seeded bugs are written as if they already go through the guard rather
+  than as an end-to-end test of an entire backtest loop.
