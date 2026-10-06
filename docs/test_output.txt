@@ -3,21 +3,26 @@ platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\Manas\D
 cachedir: .pytest_cache
 rootdir: C:\Users\Manas\Downloads\Auto Job Applier\Total Job Application process flow
 configfile: pytest.ini
-collecting ... collected 14 items
+collecting ... collected 19 items
 
-tests\test_neutralize_and_impact.py::test_sector_neutralize_zeros_out_per_sector_mean PASSED [  7%]
-tests\test_neutralize_and_impact.py::test_dollar_neutral_weights_have_the_documented_small_bias_and_unit_gross PASSED [ 14%]
-tests\test_neutralize_and_impact.py::test_impact_cost_is_nondecreasing_in_participation PASSED [ 21%]
-tests\test_purge_no_overlap.py::test_purge_covers_the_label_horizon PASSED [ 28%]
-tests\test_purge_no_overlap.py::test_folds_have_no_train_test_index_overlap_and_respect_the_purge_gap PASSED [ 35%]
-tests\test_purge_no_overlap.py::test_folds_are_expanding_and_contiguous_test_blocks PASSED [ 42%]
-tests\test_signals_and_dsr.py::test_exactly_63_signals_built PASSED      [ 50%]
-tests\test_signals_and_dsr.py::test_sr0_benchmark_increases_with_more_trials_given_fixed_dispersion PASSED [ 57%]
-tests\test_signals_and_dsr.py::test_psr_is_bounded_in_unit_interval PASSED [ 64%]
-tests\test_vintage_leakage.py::test_vintage_store_never_returns_a_later_knowledge_date PASSED [ 71%]
-tests\test_vintage_leakage.py::test_restatements_exist_and_differ_from_preliminary PASSED [ 78%]
-tests\test_vintage_leakage.py::test_all_seven_leakage_bugs_are_caught PASSED [ 85%]
-tests\test_vintage_leakage.py::test_clean_read_is_not_flagged PASSED     [ 92%]
+tests\test_combination_attribution.py::test_altdata_signals_are_piecewise_constant_per_quarter PASSED [  5%]
+tests\test_combination_attribution.py::test_altdata_signal_changes_across_quarter_boundary PASSED [ 10%]
+tests\test_combination_attribution.py::test_sector_factor_returns_one_column_per_sector PASSED [ 15%]
+tests\test_combination_attribution.py::test_attribute_recovers_known_loading PASSED [ 21%]
+tests\test_combination_attribution.py::test_combined_weights_are_dollar_neutral_and_unit_gross PASSED [ 26%]
+tests\test_neutralize_and_impact.py::test_sector_neutralize_zeros_out_per_sector_mean PASSED [ 31%]
+tests\test_neutralize_and_impact.py::test_dollar_neutral_weights_have_the_documented_small_bias_and_unit_gross PASSED [ 36%]
+tests\test_neutralize_and_impact.py::test_impact_cost_is_nondecreasing_in_participation PASSED [ 42%]
+tests\test_purge_no_overlap.py::test_purge_covers_the_label_horizon PASSED [ 47%]
+tests\test_purge_no_overlap.py::test_folds_have_no_train_test_index_overlap_and_respect_the_purge_gap PASSED [ 52%]
+tests\test_purge_no_overlap.py::test_folds_are_expanding_and_contiguous_test_blocks PASSED [ 57%]
+tests\test_signals_and_dsr.py::test_exactly_63_signals_built PASSED      [ 63%]
+tests\test_signals_and_dsr.py::test_sr0_benchmark_increases_with_more_trials_given_fixed_dispersion PASSED [ 68%]
+tests\test_signals_and_dsr.py::test_psr_is_bounded_in_unit_interval PASSED [ 73%]
+tests\test_vintage_leakage.py::test_vintage_store_never_returns_a_later_knowledge_date PASSED [ 78%]
+tests\test_vintage_leakage.py::test_restatements_exist_and_differ_from_preliminary PASSED [ 84%]
+tests\test_vintage_leakage.py::test_all_seven_leakage_bugs_are_caught PASSED [ 89%]
+tests\test_vintage_leakage.py::test_clean_read_is_not_flagged PASSED     [ 94%]
 tests\test_vintage_leakage.py::test_pinned_runs_reproduce_exactly PASSED [100%]
 
-============================= 14 passed in 15.17s =============================
+============================= 19 passed in 21.41s =============================

@@ -9,10 +9,17 @@ a square-root market-impact cost model to find where net Sharpe collapses.
 Extended (Oct. 2026) with a point-in-time vintage store, a leakage detector
 that fails a run reading a later vintage than its own simulation clock, and
 a pinned run manifest (data vintage digest plus code digest plus seed) that
-reproduces its own statistic exactly. Every number below was measured on
-this machine, not targeted; two sweeps were widened, and one
-survivor-selection rule was pre-specified and never touched after seeing
-results, all disclosed in Findings.
+reproduces its own statistic exactly. Extended a second time (Oct. 2026,
+Schonfeld Quantitative Research Intern req) with `altdata.py`, `factors.py`
+and `combine.py`: two alternative-data signal proxies combined with the
+63-signal mining's deflated-Sharpe survivors into one portfolio, a sector,
+size and momentum factor attribution of that combined portfolio's daily
+return, and the residual's Sharpe gross and net of a half-spread plus the
+existing square-root impact model at $250M. Every number below was measured
+on this machine, not targeted; two sweeps were widened, one survivor-
+selection rule was pre-specified and never touched after seeing results, and
+the factor attribution came in well under its target, all disclosed in
+Findings.
 
 ## Why this exists
 
@@ -65,6 +72,25 @@ builds the smallest honest version of that two-part question.
   that the query_date and every returned row's knowledge_date are no later
   than the simulation clock. The 7 seeded bugs in `xsalpha/leakage_bugs.py`
   are 7 distinct, realistic ways a backtester call site gets this wrong.
+- **The two alternative-data signals are proxies built on this repository's
+  own panel, not the actual datasets from the sibling alt-data projects.**
+  `xsalpha/altdata.py` builds both from the panel's one genuinely
+  informative fundamental-like field, `earn_yield`, through a coverage-
+  weighted noisy re-read (the same mechanism as
+  [`point-in-time-activity-index`](https://github.com/Manas103/point-in-time-activity-index)'s
+  `nowcast/` extension) rather than reusing that project's 120-name
+  consumer panel or the Filing-Language Signal project's real SEC filings,
+  which have no entities in common with this panel's 500 simulated tickers.
+  `xsalpha/simulate.py`'s return-generating process itself is untouched, so
+  every already-measured number in this README stays valid.
+- **The factor attribution is return-based, not a variance R^2.** This
+  portfolio is already sector-neutral by construction (`neutralize.py`
+  zeros every sector's daily mean score), so a day-to-day variance
+  regression against sector returns would show almost nothing by design.
+  `xsalpha/factors.py::attribute` instead compares the *sum* of the factor-
+  loadings-implied daily return against the sum of the actual daily return,
+  which answers "how much of the compounded return came from factor tilts"
+  rather than "how much of the day-to-day wiggle."
 
 ### Machine and toolchain
 
@@ -95,6 +121,12 @@ xsalpha/vintage_store.py     point-in-time store: every value tagged with the da
 xsalpha/leakage_detector.py  guard that fails a run reading a vintage published after its simulation clock
 xsalpha/leakage_bugs.py      7 seeded, named leakage bugs exercised against the guard
 xsalpha/run_manifest.py      pins a data-vintage digest, a code digest and a seed for exact reproduction
+xsalpha/altdata.py            two alt-data signal proxies: a coverage-noisy re-read of earn_yield, and a
+                               noisier read of its change, both with noise drawn once per quarter
+xsalpha/factors.py             sector (per-sector equal-weight return), size and momentum (decile
+                                long-short) factor returns, and the return-based attribution regression
+xsalpha/combine.py            combines survivor + alt-data scores into one portfolio, runs the
+                               attribution, and prices the residual under the existing impact model
 
 sql/schema.sql              PostgreSQL-shaped panel table (designed, not exercised live; see above)
 scripts/run_signal_mining.py    mines all 63 signals, applies the survivor rule, writes docs/benchmark_output.txt
@@ -102,17 +134,21 @@ scripts/run_capacity_sweep.py   trades the survivor portfolio at increasing size
 scripts/reference_oracle_check.py   diffs the vectorized IC/DSR math against the independent oracle
 scripts/run_leakage_check.py        runs the 7 seeded leakage bugs through the guard, writes docs/leakage_check_output.txt
 scripts/run_pinned_reproducibility.py  pins a manifest and checks two runs reproduce exactly, writes docs/pinned_reproducibility_output.txt
+scripts/run_combination_attribution.py  combines, attributes, prices the residual, writes docs/attribution_output.txt
 
 tests/test_purge_no_overlap.py       purged-fold label/test overlap check
 tests/test_neutralize_and_impact.py  sector-neutrality and impact-cost monotonicity invariants
 tests/test_signals_and_dsr.py        signal count and deflated-Sharpe sanity properties
 tests/test_vintage_leakage.py        vintage-store invariant, all 7 leakage bugs caught, pinned reproducibility
+tests/test_combination_attribution.py  alt-data quarterly cadence, sector-factor shape, attribution
+                                        recovers a known loading, combined weights stay dollar-neutral
 
 docs/benchmark_output.txt        raw signal-mining and capacity-sweep run
 docs/reference_oracle_output.txt raw reference-oracle diff run
 docs/test_output.txt             raw pytest run
 docs/leakage_check_output.txt    raw 7-of-7 leakage bug run
 docs/pinned_reproducibility_output.txt  raw pinned-manifest reproducibility run
+docs/attribution_output.txt      raw combination and factor-attribution run
 ```
 
 **Why the survivor sign is estimated per fold, not globally.** `ic.py`'s
@@ -174,6 +210,14 @@ chance alone), and that PSR is bounded in [0, 1].
 9 passed in 0.92s
 ```
 
+**4b. Attribution recovers a known loading.** `test_attribute_recovers_known_loading`
+builds a synthetic return series with known factor loadings (2.0, 0.5) and a known
+alpha, runs it through `factors.attribute`, and checks the recovered loadings are within
+0.1 and that the known alpha survives in the residual rather than being absorbed into
+"explained return". `test_combined_weights_are_dollar_neutral_and_unit_gross` checks the
+5-signal combined portfolio keeps the same unit-gross, (near-)dollar-neutral property the
+3-survivor portfolio already has.
+
 **5. Leakage detector.** `scripts/run_leakage_check.py` builds a 500-entity,
 2,016-day vintage store with restatements, then drives all 7 named bugs in
 `xsalpha/leakage_bugs.py` through `LeakageDetector.guarded_as_of` and
@@ -204,6 +248,12 @@ resample mean (so the check is not vacuously true):
 exact match across two independent runs of the same manifest: True
 a different seed changes the seeded resample mean: True
 ```
+
+**7. Alt-data quarterly cadence.** `test_altdata_signals_are_piecewise_constant_per_quarter`
+checks that both alt-data signals' cross-sectional rank is identical across every day of
+a 55-trading-day span known to sit entirely inside one simulated quarter, and
+`test_altdata_signal_changes_across_quarter_boundary` checks the rank does change across
+a quarter boundary, so the invariant is not vacuously true from an inert signal.
 
 ## Findings
 
@@ -250,6 +300,33 @@ at very large gross size. This is reported as measured rather than adjusted
 by raising the impact coefficient or lowering the survivor Sharpe after the
 fact.
 
+**Sector, size and momentum exposure explained 7.5% of the combined
+portfolio's gross return, far under the 62% target, and the residual Sharpe
+(6.37 gross, 6.18 net at $250M) came in far above the targeted 1.62/0.38,
+both for the same underlying reason.** This portfolio's edge is entirely
+built from `earn_yield` and noisy re-reads of it; `earn_yield`'s per-stock
+value tilt (`ey_char` in `xsalpha/simulate.py`) is drawn independently of
+every other characteristic in the generator, with no designed relationship
+to firm size, trailing momentum, or sector membership. A clean, by-
+construction-neutral signal set like this one has almost nothing for a
+sector/size/momentum regression to find: the sector factors contribute
+~0 by construction (the portfolio is already sector-neutral), and size and
+momentum pick up only the small, coincidental correlation that 1,756 days
+of a slow-moving value tilt happens to have with those factors in this
+particular simulated history. Real cross-sectional value signals do carry
+a structural tilt toward smaller, less-followed names that this clean
+synthetic panel does not encode, which is the most likely reason the real-
+world 62% figure does not reproduce here; this is reported as measured
+rather than adjusted by injecting a designed size/momentum correlation
+after seeing the shortfall, which would be exactly the kind of after-the-
+fact tuning this playbook forbids. The residual Sharpe overshoot follows
+directly: if factors explain almost none of the return, the residual is
+almost the whole, very strong 6.76 combined gross Sharpe, barely dented by
+trading costs because the composite is still dominated by the original,
+slow-turning survivor signals (see the capacity-sweep finding above);
+adding two quarterly-cadence alt-data signals did not materially change
+that turnover profile.
+
 ## Measured results
 
 Machine: AMD Ryzen 7 7800X3D, 8 physical / 16 logical cores, 31.1 GB RAM,
@@ -267,6 +344,11 @@ x 2,016 days runs in about 226 seconds. Raw output in `docs/`.
 | Leakage detector fails any run reading a later vintage | yes | **yes**, 7 of 7 seeded bugs caught (see Validation 5), 0 false positives on a clean read |
 | Seeded leakage bugs caught | 7 of 7 | **7 of 7** |
 | Pinned runs reproduce exactly | yes | **yes**: two independent builds of the same vintage content under the same manifest produce bit-identical statistics; a different seed changes the result (see Validation 6) |
+| Both alt-data signals combined with the 63 formulaic signals | yes | **yes**: 3 deflated-Sharpe survivors + 2 alt-data signals = 5 signals combined, evaluated over 1,756 test days |
+| Simulated 500-name, 8-year daily panel | 500 names, 8 years | **500 names, 2,016 trading days (~8.0 years)**, same panel as above |
+| Purged walk-forward splits | yes | **yes**, same 8 purged folds as the 63-signal mining |
+| Sector, size and momentum exposure explains combined gross return | 62% | **7.5%** (return-based attribution; see Findings for the root cause) |
+| Residual Sharpe gross to net of a half-spread and square-root impact at $250M | 1.62 to 0.38 | **6.37 gross to 6.18 net** (see Findings) |
 
 What "survives" measures here: out-of-sample daily rank IC, sign-corrected
 per fold from that fold's training data only, reduced to one Sharpe-like
@@ -294,7 +376,8 @@ python scripts/run_capacity_sweep.py    # ~1s, appends to docs/benchmark_output.
 python scripts/reference_oracle_check.py  # ~1s, writes docs/reference_oracle_output.txt
 python scripts/run_leakage_check.py       # ~14s, writes docs/leakage_check_output.txt
 python scripts/run_pinned_reproducibility.py  # ~14s, writes docs/pinned_reproducibility_output.txt
-python -m pytest tests -v               # ~38s, 14 tests
+python scripts/run_combination_attribution.py  # ~1s, writes docs/attribution_output.txt
+python -m pytest tests -v               # ~21s, 19 tests
 ```
 
 `data/` is gitignored (the DuckDB panel file and the survivor list, about 59
@@ -338,3 +421,17 @@ backtest cannot pose.
   calling `VintageStore.as_of` directly and bypassing it, which is why the 7
   seeded bugs are written as if they already go through the guard rather
   than as an end-to-end test of an entire backtest loop.
+- Both alt-data signal proxies are noisy re-reads of this panel's own
+  `earn_yield` field, not the actual datasets measured in
+  [`point-in-time-activity-index`](https://github.com/Manas103/point-in-time-activity-index)'s
+  `nowcast/` extension or the separate Filing-Language Signal project; see
+  "Honest framing, up front".
+- The factor attribution explained 7.5% of the combined portfolio's gross
+  return, far short of the 62% target, because this panel's value
+  characteristic is drawn independently of size, momentum and sector; see
+  Findings for why this was not corrected by adding a designed correlation.
+  The residual Sharpe (6.37 gross, 6.18 net at $250M) is correspondingly far
+  above the targeted 1.62/0.38, for the same reason.
+- Sector factors are reconstructed empirically (the equal-weight realized
+  return of each sector's own stocks), not read from `simulate_panel`'s
+  internal `sector_ret` array, which the function does not expose.

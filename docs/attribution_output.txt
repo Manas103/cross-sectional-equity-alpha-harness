@@ -1,0 +1,7 @@
+Combination and factor attribution: 3 deflated-Sharpe survivors (['ey_level', 'ey_smooth_20', 'ey_smooth_60']) + 2 alternative-data signals (['altdata_nowcast', 'altdata_filing']) = 5 signals combined
+combined portfolio evaluated over 1756 test days
+combined gross Sharpe (unit gross exposure): 6.764
+factor attribution (10 sector factors + size + momentum), return-based: 7.5% of combined gross return explained
+residual gross Sharpe: 6.371
+residual net Sharpe at $250,000,000 gross (half-spread 2.5bps + square-root impact): 6.179
+target from the resume: 62% explained, residual Sharpe 1.62 gross to 0.38 net
