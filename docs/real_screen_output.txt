@@ -1,0 +1,30 @@
+{
+  "n_datasets": 44,
+  "n_quarters": 40,
+  "naive_alpha": 0.05,
+  "fwer_alpha": 0.1,
+  "naive_winners": [
+    "COMPUTSA",
+    "CORESTICKM159SFRBATL",
+    "CSUSHPISA",
+    "DCOILBRENTEU",
+    "DCOILWTICO",
+    "DRCCLACBS",
+    "DRSFRMACBS",
+    "FRGSHPUSM649NCIS",
+    "HOUST",
+    "IPG2211S",
+    "JTSJOL",
+    "REVOLSL",
+    "TOTBUSSMSA"
+  ],
+  "n_naive_winners": 13,
+  "romano_wolf_survivors": [
+    "CSUSHPISA",
+    "DRSFRMACBS",
+    "IPG2211S",
+    "REVOLSL"
+  ],
+  "n_romano_wolf_survivors": 4,
+  "oracle_vs_fast_path_max_abs_tstat_diff": 3.552713678800501e-15
+}

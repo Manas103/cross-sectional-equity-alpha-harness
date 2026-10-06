@@ -1,6 +1,10 @@
 # Regenerate with: python scripts/run_signal_mining.py (writes data/panel.duckdb
 # and data/survivors.json, ~59 MB)
-data/
+data/*
+
+# real_dataset_screen_panel.csv is small (about 33 KB) and real; keep it committed.
+# Regenerate with: python scripts/ingest_real_datasets.py --raw-dir <dir> --out-csv data/real_dataset_screen_panel.csv
+!data/real_dataset_screen_panel.csv
 
 __pycache__/
 *.pyc

@@ -1,0 +1,5 @@
+n_datasets=44
+n_usable_quarters=40
+first_quarter=(2016, 3)
+last_quarter=(2026, 2)
+wrote data/real_dataset_screen_panel.csv

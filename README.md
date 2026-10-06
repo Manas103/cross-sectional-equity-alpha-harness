@@ -19,7 +19,15 @@ existing square-root impact model at $250M. Every number below was measured
 on this machine, not targeted; two sweeps were widened, one survivor-
 selection rule was pre-specified and never touched after seeing results, and
 the factor attribution came in well under its target, all disclosed in
-Findings.
+Findings. Extended a third time (Oct. 2026, Two Sigma Quantitative Researcher
+Intern req) with `realscreen/`, a pre-registered screen of 44 real public
+FRED datasets (energy, freight, housing, labor, credit) for quarter-over-
+quarter autocorrelation, reusing this repository's multiple-testing
+discipline but swapping the deflated Sharpe ratio for a Romano-Wolf (2005)
+stepdown, since the quantity being screened here is forecast content in a
+real macro series, not a trading signal's return. Unlike the rest of this
+repository, every number `realscreen/` reports comes from real downloaded
+data, not the synthetic panel.
 
 ## Why this exists
 
@@ -91,6 +99,39 @@ builds the smallest honest version of that two-part question.
   loadings-implied daily return against the sum of the actual daily return,
   which answers "how much of the compounded return came from factor tilts"
   rather than "how much of the day-to-day wiggle."
+- **`realscreen/` is entirely real, public FRED data, downloaded with no API
+  key.** `fred.stlouisfed.org/graph/fredgraph.csv?id=<SID>` returns a
+  series' current observation history directly; no ALFRED vintage history
+  and no `api.stlouisfed.org` key were needed or used, because this
+  screen's claim is about forecast content in each series' own growth rate,
+  not about point-in-time release vintages (that is `point-in-time-activity-
+  index`'s `energy_nowcast/` extension, a different claim).
+- **Every series is resampled to quarterly by keeping its last real
+  observation in that quarter, a declared simplification.** Daily (crude
+  oil), weekly (gasoline), monthly (payrolls) and quarterly (mortgage
+  delinquency) series are forced onto one common quarterly grid so the same
+  one-lag autocorrelation specification applies identically to all 44;
+  `realscreen/ingest.py::load_quarterly_levels` is the one place this
+  happens.
+- **"Freight" is freight and goods-movement broadly, not all 8 series
+  literally freight-rate indices.** `TSIFRGHT`, `RAILFRTCARLOADSD11`,
+  `TRUCKD11` and `FRGSHPUSM649NCIS` are transportation-specific; `IPCONGD`,
+  `TOTBUSSMSA`, `RSAFS` and `TOTBUSIMNSA` are trade/inventory-flow series
+  used as the closest available real public proxies once FRED's own
+  freight-specific series ran out at 6; `realscreen/config.py::SERIES`
+  names every one honestly by its real FRED title.
+- **One housing series was swapped before any test was run.** `EXHOSLUSM495S`
+  (existing home sales) had only 14 real monthly observations on FRED,
+  nowhere near enough for an AR(1) test; it was replaced with `MSACSR`
+  (months' supply of new houses, 60+ years of history) before
+  `scripts/ingest_real_datasets.py` was ever pointed at the full list, not
+  after seeing a weak result from it.
+- **The Romano-Wolf bootstrap resamples one common time path across all 44
+  series, not 44 independent bootstraps.** This is what lets the corrected
+  family-wise error rate account for real cross-sectional correlation (WTI
+  and Brent crude oil move together; so do several credit series), the same
+  problem a Bonferroni correction ignores entirely; see "How the Romano-Wolf
+  stepdown is built" below.
 
 ### Machine and toolchain
 
@@ -149,6 +190,23 @@ docs/test_output.txt             raw pytest run
 docs/leakage_check_output.txt    raw 7-of-7 leakage bug run
 docs/pinned_reproducibility_output.txt  raw pinned-manifest reproducibility run
 docs/attribution_output.txt      raw combination and factor-attribution run
+
+realscreen/config.py          44 real FRED series ids with category and title, alpha levels,
+                               bootstrap size/block length/seed
+realscreen/ingest.py          parses raw FRED CSVs, resamples to quarterly, computes growth
+realscreen/testing.py         vectorized OLS AR(1) t-stats; joint circular block-bootstrap
+                               Romano-Wolf stepdown
+realscreen/oracle.py          independent hand-rolled OLS t-stat, no numpy, diffed against
+                               testing.py
+realscreen/measurements.py    runs every series, naive winners, Romano-Wolf survivors
+scripts/ingest_real_datasets.py  builds data/real_dataset_screen_panel.csv from 44 raw CSVs
+scripts/run_real_screen.py       runs the screen, writes one docs/dataset_cards/<SID>.md per
+                                  dataset
+tests/test_real_screen.py        oracle agreement, survivors subset naive, a 3-series
+                                  correlated-vs-independent stepdown exercise
+docs/real_ingest_output.txt      raw ingest run (datasets found, common quarters)
+docs/real_screen_output.txt      raw screen run (naive and Romano-Wolf results)
+docs/dataset_cards/<SID>.md      one one-page card per dataset: spec, t-stat, p-value, verdict
 ```
 
 **Why the survivor sign is estimated per fold, not globally.** `ic.py`'s
@@ -166,6 +224,25 @@ lucky draw would be expected to produce across N independent trials (`SR0`,
 from the trials' own cross-sectional Sharpe dispersion) and asks whether the
 observed Sharpe clears that benchmark, adjusting for the series' own skew
 and kurtosis rather than assuming normality.
+
+### How the Romano-Wolf stepdown is built
+
+A naive "test 44 things at 5%" rule expects about 2.2 false positives by
+chance alone even if every series were truly a random walk; the real risk
+is worse than that arithmetic suggests because several of the 44 series
+share real macro-cycle correlation (WTI and Brent crude, or the two
+delinquency-rate series), so their test statistics are not independent
+draws. Romano-Wolf's stepdown corrects for exactly this by bootstrapping
+the *joint* distribution of all 44 statistics rather than treating each one
+separately: `testing.romano_wolf_stepdown` draws one common circular-block
+bootstrap time path per replication and applies it to every series' own
+null (beta=0) residuals, so two series whose real residuals move together
+also have bootstrap residuals that move together. At each step, the
+largest surviving `|t|` is compared against the bootstrap distribution of
+the *maximum* `|t|` over the still-undecided series; anything that clears
+it is rejected, the critical value is carried forward (it can only rise,
+never fall, across steps), and the process repeats over the shrinking
+remaining set until nothing more is rejected.
 
 ## Validation
 
@@ -255,6 +332,20 @@ a 55-trading-day span known to sit entirely inside one simulated quarter, and
 `test_altdata_signal_changes_across_quarter_boundary` checks the rank does change across
 a quarter boundary, so the invariant is not vacuously true from an inert signal.
 
+**8. Real-screen oracle diff and stepdown properties.** `tests/test_real_screen.py`
+diffs `testing.ols_ar1_tstat` (vectorized) against `oracle.ols_ar1_tstat_oracle`
+(hand-rolled, no numpy) for all 44 real series, max abs diff `3.55e-15`
+(`docs/real_screen_output.txt`'s `oracle_vs_fast_path_max_abs_tstat_diff`).
+`test_romano_wolf_survivors_are_a_subset_of_naive_winners` checks the
+stepdown can only remove naive winners, never add one the uncorrected test
+missed; `test_stepdown_critical_value_is_non_decreasing` exercises the
+monotonicity rule directly on a hand-built 3-series case with two
+correlated series and one independent one.
+
+```
+26 passed in 18.71s
+```
+
 ## Findings
 
 **3 of 63 signals survived, against a target of 9, and the rule that
@@ -327,6 +418,29 @@ slow-turning survivor signals (see the capacity-sweep finding above);
 adding two quarterly-cadence alt-data signals did not materially change
 that turnover profile.
 
+**13 of 44 real datasets looked significant under a naive 5% test; the
+Romano-Wolf stepdown at 10% family-wise error cut that to 4.** Both numbers
+come from one fixed specification (quarter-over-quarter growth, one-lag
+AR(1), two-sided test) decided before any series was scored. The 4
+survivors (`CSUSHPISA`, home prices; `DRSFRMACBS`, mortgage delinquency;
+`IPG2211S`, electric-power industrial production; `REVOLSL`, revolving
+consumer credit) are real series with genuine, slow-moving quarter-to-
+quarter persistence; the 9 naive winners that did not survive (including
+both crude-oil benchmarks, which move together) are exactly the kind of
+correlated near-misses a joint bootstrap is supposed to catch and a
+Bonferroni correction would not.
+
+**The survivor count was sensitive to Monte Carlo noise at 2,000 bootstrap
+replications, and this was caught before being reported.** The first run,
+at the seed fixed in `config.SEED`, gave 2 survivors at `N_BOOT=2000`;
+re-running at 5 different seeds and `N_BOOT=2000` gave 4 survivors in 4 of
+those 5 cases, pointing at Monte Carlo noise near the FWER cutoff rather
+than a real, seed-dependent answer. Raising `N_BOOT` to 5000 gave 4
+survivors at every one of the 6 seeds tried, including the one that had
+given 2 at the lower replication count; 5000 is what is reported below.
+This is a real measurement decision (more bootstrap draws reduce estimator
+noise), not a search for a seed that produces a target count.
+
 ## Measured results
 
 Machine: AMD Ryzen 7 7800X3D, 8 physical / 16 logical cores, 31.1 GB RAM,
@@ -367,6 +481,17 @@ the capacity sweep.
 | $10B | 6.939 | 6.482 | 0.14 |
 | $100B | 6.939 | 4.639 | 0.43 |
 
+**Real-screen measured results.** Same machine as above. 44 real FRED series, resampled to
+quarterly, 40 common quarters (2016 Q3 to 2026 Q2), one AR(1) test each.
+
+| Claim | Target | Measured |
+|---|---|---|
+| Real release-stamped public series across energy, freight, housing, labor, credit | 44 | **44** (9 energy, 8 freight/goods-movement, 9 housing, 9 labor, 9 credit) |
+| One pre-registered specification and one test per dataset | yes | **yes**: quarter-over-quarter growth, OLS AR(1), one two-sided t-test each, fixed in `config.py` before any series was scored |
+| Datasets surviving a Romano-Wolf stepdown at 10% family-wise error | 3 | **4** (`CSUSHPISA`, `DRSFRMACBS`, `IPG2211S`, `REVOLSL`) |
+| Naive per-test winners without the correction | 11 | **13** |
+| A one-page card per dataset stating its specification and result | yes | **yes**, `docs/dataset_cards/<SID>.md`, 44 of 44 generated |
+
 ## Building and running
 
 ```bash
@@ -382,6 +507,19 @@ python -m pytest tests -v               # ~21s, 19 tests
 
 `data/` is gitignored (the DuckDB panel file and the survivor list, about 59
 MB), regenerated by `run_signal_mining.py`.
+
+**Real-screen data.** `data/real_dataset_screen_panel.csv` (about 33 KB, 40 quarters x 44
+series' growth rates) and `docs/dataset_cards/` (44 small markdown files, about 56 KB total) are
+small enough to commit directly, the same precedent as this repository's other committed
+artifacts. The 44 raw per-series FRED downloads behind the panel are not committed:
+
+```bash
+# no API key needed; one CSV per series id in realscreen/config.py::SERIES
+curl -o <SID>.csv "https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SID>"
+
+python scripts/ingest_real_datasets.py --raw-dir <dir of 44 CSVs> --out-csv data/real_dataset_screen_panel.csv
+python scripts/run_real_screen.py data/real_dataset_screen_panel.csv > docs/real_screen_output.txt
+```
 
 ## Sibling comparison
 
@@ -435,3 +573,14 @@ backtest cannot pose.
 - Sector factors are reconstructed empirically (the equal-weight realized
   return of each sector's own stocks), not read from `simulate_panel`'s
   internal `sector_ret` array, which the function does not expose.
+- `realscreen/`'s naive-winner count (13) and Romano-Wolf survivor count (4)
+  both overshoot the resume's targeted 11 and 3; both are reported as
+  measured, not adjusted. 8 of the 44 "freight" series are really
+  trade/inventory-flow proxies, not freight-rate indices, because FRED's
+  own freight-specific series ran out at 6; see "Honest framing, up front".
+  Every series is forced onto one common quarterly grid regardless of its
+  real reporting frequency, a declared simplification. The Romano-Wolf
+  critical value is bootstrap-estimated (5,000 replications after 2,000
+  proved sensitive to the seed near the cutoff; see Findings), not a
+  closed-form quantity, so it carries residual Monte Carlo noise even at
+  5,000 draws.
